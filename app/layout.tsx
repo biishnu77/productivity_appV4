@@ -26,6 +26,9 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           {children}
+          <footer className="text-center py-4 text-sm text-muted-foreground">
+            Made with ❤️ by <a href="http://www.bishnu.info.np" target="_blank" rel="noopener noreferrer" className="hover:underline">Bishnu Thapa</a>
+          </footer>
           <Toaster />
         </ThemeProvider>
       </body>
