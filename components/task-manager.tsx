@@ -338,6 +338,8 @@ export default function TaskManager() {
                   size="sm"
                   onClick={() => startTask(task)}
                   className="flex items-center gap-1"
+                  disabled={task.completed}
+
                 >
                   <Play className="h-3 w-3" />
                   Start
