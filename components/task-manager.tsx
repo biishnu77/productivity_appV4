@@ -1,26 +1,17 @@
-"use client";
-
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useUserStore } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from 'sonner';
-import { Loader2, Plus, Trash2, Clock, Play, Sun, Dumbbell, Brain, Calendar } from 'lucide-react';
+import { Loader2, Plus, Clock, Sun, Dumbbell, Brain, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
-
-interface Task {
-  id: number;
-  user_name: string;
-  description: string;
-  completed: boolean;
-  duration: number;
-  due_date: string;
-  created_at: string;
-}
+import { WellnessCard } from '@/components/ui/wellness-card';
+import { TaskList } from '@/components/ui/task-list';
+import { Task } from '@/types/task';
+import { formatDuration } from '@/lib/utils';
 
 export default function TaskManager() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -29,15 +20,60 @@ export default function TaskManager() {
   const [loading, setLoading] = useState(true);
   const { userName } = useUserStore();
   
+  // Wellness tracking states
   const [wakeUpTime, setWakeUpTime] = useState(format(new Date().setHours(6, 30), 'HH:mm'));
-  const [exerciseCompleted, setExerciseCompleted] = useState(false);
-  const [meditationMinutes, setMeditationMinutes] = useState('0');
+  const [exerciseTimer, setExerciseTimer] = useState(15 * 60);
+  const [meditationTimer, setMeditationTimer] = useState(15 * 60);
+  const [isExerciseActive, setIsExerciseActive] = useState(false);
+  const [isMeditationActive, setIsMeditationActive] = useState(false);
   const [weeklyProgress] = useState(() => {
     return Array(7).fill(null).map((_, i) => ({
       date: format(new Date(Date.now() - i * 24 * 60 * 60 * 1000), 'EEE'),
       completion: Math.random() * 100
     }));
   });
+
+  useEffect(() => {
+    if (userName) {
+      fetchTasks();
+    }
+  }, [userName]);
+
+  useEffect(() => {
+    let exerciseInterval: NodeJS.Timeout;
+    let meditationInterval: NodeJS.Timeout;
+
+    if (isExerciseActive && exerciseTimer > 0) {
+      exerciseInterval = setInterval(() => {
+        setExerciseTimer(prev => {
+          if (prev <= 1) {
+            setIsExerciseActive(false);
+            toast.success('Exercise session completed!');
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+
+    if (isMeditationActive && meditationTimer > 0) {
+      meditationInterval = setInterval(() => {
+        setMeditationTimer(prev => {
+          if (prev <= 1) {
+            setIsMeditationActive(false);
+            toast.success('Meditation session completed!');
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+
+    return () => {
+      clearInterval(exerciseInterval);
+      clearInterval(meditationInterval);
+    };
+  }, [isExerciseActive, isMeditationActive, exerciseTimer, meditationTimer]);
 
   const fetchTasks = async () => {
     try {
@@ -55,12 +91,6 @@ export default function TaskManager() {
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    if (userName) {
-      fetchTasks();
-    }
-  }, [userName]);
 
   const addTask = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -139,11 +169,35 @@ export default function TaskManager() {
     }
   };
 
-  const formatDuration = (minutes: number) => {
-    if (minutes < 60) return `${minutes}m`;
-    const hours = Math.floor(minutes / 60);
-    const remainingMinutes = minutes % 60;
-    return remainingMinutes > 0 ? `${hours}h ${remainingMinutes}m` : `${hours}h`;
+  const toggleExerciseTimer = () => {
+    if (exerciseTimer === 0) {
+      setExerciseTimer(15 * 60);
+    }
+    setIsExerciseActive(!isExerciseActive);
+  };
+
+  const toggleMeditationTimer = () => {
+    if (meditationTimer === 0) {
+      setMeditationTimer(15 * 60);
+    }
+    setIsMeditationActive(!isMeditationActive);
+  };
+
+  const saveWakeUpTime = async () => {
+    try {
+      const { error } = await supabase
+        .from('user_preferences')
+        .upsert({
+          user_name: userName,
+          wake_up_time: wakeUpTime,
+          updated_at: new Date().toISOString()
+        });
+
+      if (error) throw error;
+      toast.success('Wake-up time saved successfully!');
+    } catch (error) {
+      toast.error('Failed to save wake-up time');
+    }
   };
 
   const totalTime = tasks.reduce((acc, task) => acc + task.duration, 0);
@@ -199,65 +253,36 @@ export default function TaskManager() {
         </Card>
 
         <div className="space-y-4">
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Sun className="h-5 w-5 text-yellow-500" />
-                  <div>
-                    <div className="font-semibold">Wake-Up Time</div>
-                    <div className="text-sm text-muted-foreground">Start your day right</div>
-                  </div>
-                </div>
-                <Input
-                  type="time"
-                  value={wakeUpTime}
-                  onChange={(e) => setWakeUpTime(e.target.value)}
-                  className="w-32"
-                />
-              </div>
-            </CardContent>
-          </Card>
+          <WellnessCard
+            icon={<Sun className="h-5 w-5 text-yellow-500" />}
+            title="Wake-Up Time"
+            description="Start your day right"
+            timeInput={{
+              value: wakeUpTime,
+              onChange: setWakeUpTime,
+              onSave: saveWakeUpTime
+            }}
+          />
 
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Dumbbell className="h-5 w-5 text-green-500" />
-                  <div>
-                    <div className="font-semibold">Daily Exercise</div>
-                    <div className="text-sm text-muted-foreground">Stay active and healthy</div>
-                  </div>
-                </div>
-                <Checkbox
-                  checked={exerciseCompleted}
-                  onCheckedChange={(checked) => setExerciseCompleted(checked as boolean)}
-                />
-              </div>
-            </CardContent>
-          </Card>
+          <WellnessCard
+            icon={<Dumbbell className="h-5 w-5 text-green-500" />}
+            title="Daily Exercise"
+            description="Stay active and healthy"
+            timer={exerciseTimer}
+            isActive={isExerciseActive}
+            onToggle={toggleExerciseTimer}
+            showTimer
+          />
 
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Brain className="h-5 w-5 text-purple-500" />
-                  <div>
-                    <div className="font-semibold">Meditation</div>
-                    <div className="text-sm text-muted-foreground">Minutes of mindfulness</div>
-                  </div>
-                </div>
-                <Input
-                  type="number"
-                  value={meditationMinutes}
-                  onChange={(e) => setMeditationMinutes(e.target.value)}
-                  className="w-20"
-                  min="0"
-                  max="120"
-                />
-              </div>
-            </CardContent>
-          </Card>
+          <WellnessCard
+            icon={<Brain className="h-5 w-5 text-purple-500" />}
+            title="Meditation"
+            description="Minutes of mindfulness"
+            timer={meditationTimer}
+            isActive={isMeditationActive}
+            onToggle={toggleMeditationTimer}
+            showTimer
+          />
 
           <Card>
             <CardHeader className="pb-2">
@@ -312,50 +337,12 @@ export default function TaskManager() {
         </Button>
       </form>
 
-      <div className="space-y-2">
-        {tasks.map((task) => (
-          <Card key={task.id}>
-            <CardContent className="flex items-center justify-between p-4">
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  checked={task.completed}
-                  onCheckedChange={(checked) => toggleTask(task.id, checked as boolean)}
-                />
-                <div className={task.completed ? 'line-through text-muted-foreground' : ''}>
-                  <div>{task.description}</div>
-                  <div className="text-sm text-muted-foreground flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
-                    {formatDuration(task.duration)}
-                  </div>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">
-                  {format(new Date(task.created_at), 'MMM d, yyyy')}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => startTask(task)}
-                  className="flex items-center gap-1"
-                  disabled={task.completed}
-
-                >
-                  <Play className="h-3 w-3" />
-                  Start
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => deleteTask(task.id)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <TaskList
+        tasks={tasks}
+        onToggleTask={toggleTask}
+        onStartTask={startTask}
+        onDeleteTask={deleteTask}
+      />
     </div>
   );
 }
