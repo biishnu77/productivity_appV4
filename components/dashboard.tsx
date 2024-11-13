@@ -1,15 +1,14 @@
-"use client";
-
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import TaskManager from "@/components/task-manager";
 import PomodoroTimer from "@/components/pomodoro-timer";
 import DailyNotes from "@/components/daily-notes";
 import DailyStats from "@/components/daily-stats";
 import Leaderboard from "@/components/leaderboard";
+import Community from "@/components/community";
 import { ModeToggle } from "@/components/mode-toggle";
 import { Button } from "@/components/ui/button";
 import { useUserStore } from "@/lib/store";
-import { LogOut, ListTodo, Timer, ScrollText, BarChart2, Trophy } from "lucide-react";
+import { LogOut, ListTodo, Timer, ScrollText, BarChart2, Trophy, Users } from "lucide-react";
 
 export default function Dashboard() {
   const { userName, clearUserName } = useUserStore();
@@ -35,7 +34,7 @@ export default function Dashboard() {
 
       <main className="container mx-auto px-4 py-8">
         <Tabs defaultValue="tasks" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-5 lg:w-[600px]">
+          <TabsList className="grid w-full grid-cols-6 lg:w-[720px]">
             <TabsTrigger value="tasks" className="flex items-center gap-2">
               <ListTodo className="h-4 w-4" />
               <span className="hidden sm:inline">Tasks</span>
@@ -55,6 +54,10 @@ export default function Dashboard() {
             <TabsTrigger value="leaderboard" className="flex items-center gap-2">
               <Trophy className="h-4 w-4" />
               <span className="hidden sm:inline">Leaders</span>
+            </TabsTrigger>
+            <TabsTrigger value="community" className="flex items-center gap-2">
+              <Users className="h-4 w-4" />
+              <span className="hidden sm:inline">Community</span>
             </TabsTrigger>
           </TabsList>
 
@@ -76,6 +79,10 @@ export default function Dashboard() {
 
           <TabsContent value="leaderboard" className="space-y-4">
             <Leaderboard />
+          </TabsContent>
+
+          <TabsContent value="community" className="space-y-4">
+            <Community />
           </TabsContent>
         </Tabs>
       </main>

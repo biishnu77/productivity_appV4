@@ -85,3 +85,34 @@ create policy "Enable insert access for all users"
 create policy "Enable update access for users based on user_name"
   on public.notes for update
   using (true);
+
+
+  -- Community Posts Table
+create table if not exists public.community_posts (
+  id bigint primary key generated always as identity,
+  user_name text not null,
+  content text not null,
+  likes integer default 0,
+  created_at timestamp with time zone default now(),
+  updated_at timestamp with time zone default now()
+);
+
+-- Enable RLS for community_posts
+alter table public.community_posts enable row level security;
+
+-- Community posts policies
+create policy "Enable read access for all users"
+  on public.community_posts for select
+  using (true);
+
+create policy "Enable insert access for all users"
+  on public.community_posts for insert
+  with check (true);
+
+create policy "Enable update access for users based on user_name"
+  on public.community_posts for update
+  using (true);
+
+create policy "Enable delete access for users based on user_name"
+  on public.community_posts for delete
+  using (true);
