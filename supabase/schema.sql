@@ -116,3 +116,23 @@ create policy "Enable update access for users based on user_name"
 create policy "Enable delete access for users based on user_name"
   on public.community_posts for delete
   using (true);
+
+  -- Add users table for authentication
+create table if not exists public.users (
+  id bigint primary key generated always as identity,
+  username text unique not null,
+  password_hash text not null,
+  created_at timestamp with time zone default now()
+);
+
+-- Enable RLS for users
+alter table public.users enable row level security;
+
+-- Users policies
+create policy "Enable insert access for all users"
+  on public.users for insert
+  with check (true);
+
+create policy "Enable read access for all users"
+  on public.users for select
+  using (true);
