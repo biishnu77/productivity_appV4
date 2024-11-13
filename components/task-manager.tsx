@@ -185,21 +185,24 @@ export default function TaskManager() {
 
   const saveWakeUpTime = async () => {
     try {
+      // Insert a new record for the wake-up time for the current day
       const { error } = await supabase
         .from('user_preferences')
-        .upsert({
+        .insert({
           user_name: userName,
-          wake_up_time: wakeUpTime,
-          updated_at: new Date().toISOString()
+          wake_up_time: wakeUpTime, // Storing the time here
+          date: new Date().toISOString().split('T')[0], // Storing the current date
+          updated_at: new Date().toISOString(),
+          created_at: new Date().toISOString(),
         });
-
+  
       if (error) throw error;
       toast.success('Wake-up time saved successfully!');
     } catch (error) {
       toast.error('Failed to save wake-up time');
     }
   };
-
+  
   const totalTime = tasks.reduce((acc, task) => acc + task.duration, 0);
   const completedTime = tasks.filter(task => task.completed).reduce((acc, task) => acc + task.duration, 0);
   const remainingTime = totalTime - completedTime;
@@ -253,16 +256,16 @@ export default function TaskManager() {
         </Card>
 
         <div className="space-y-4">
-          <WellnessCard
-            icon={<Sun className="h-5 w-5 text-yellow-500" />}
-            title="Wake-Up Time"
-            description="Start your day right"
-            timeInput={{
-              value: wakeUpTime,
-              onChange: setWakeUpTime,
-              onSave: saveWakeUpTime
-            }}
-          />
+        <WellnessCard
+      icon={<Sun className="h-5 w-5 text-yellow-500" />}
+      title="Wake-Up Time"
+      description="Start your day right"
+      timeInput={{
+        value: wakeUpTime,
+        onChange: setWakeUpTime,
+        onSave: saveWakeUpTime
+      }}
+    />
 
           <WellnessCard
             icon={<Dumbbell className="h-5 w-5 text-green-500" />}

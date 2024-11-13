@@ -45,8 +45,8 @@ export function WellnessCard({
               <>
                 <Input
                   type="time"
-                  value={timeInput.value}
-                  onChange={(e) => timeInput.onChange(e.target.value)}
+                  value={timeInput.value} // Controlled value
+                  onChange={(e) => timeInput.onChange(e.target.value)} // Update on change
                   className="w-32"
                 />
                 <Button onClick={timeInput.onSave} size="sm">Save</Button>
