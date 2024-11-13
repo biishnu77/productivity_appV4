@@ -1,3 +1,13 @@
+create table if not exists public.user_preferences (
+  id bigint primary key generated always as identity,
+  user_name text not null,
+  wake_up_time text not null,  -- Storing wake-up time as text (e.g. HH:mm)
+  date date not null default current_date,  -- Storing the date to track the wake-up time for each day
+  updated_at timestamp with time zone default now(),
+  created_at timestamp with time zone default now(),
+  unique(user_name, date)  -- Ensuring each user has only one wake-up time per day
+);
+
 -- Tasks Table
 create table if not exists public.tasks (
   id bigint primary key generated always as identity,
