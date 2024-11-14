@@ -5,6 +5,7 @@ import { Clock, Play, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { Task } from '@/types/task';
 import { formatDuration } from '@/lib/utils';
+import { useUserStore } from '@/lib/store';
 
 interface TaskListProps {
   tasks: Task[];
@@ -14,6 +15,13 @@ interface TaskListProps {
 }
 
 export function TaskList({ tasks, onToggleTask, onStartTask, onDeleteTask }: TaskListProps) {
+  const setActiveTab = useUserStore((state) => state.setActiveTab);
+
+  const handleStartTask = (task: Task) => {
+    onStartTask(task);
+    setActiveTab('pomodoro');
+  };
+
   return (
     <div className="space-y-2">
       {tasks.map((task) => (
@@ -39,7 +47,7 @@ export function TaskList({ tasks, onToggleTask, onStartTask, onDeleteTask }: Tas
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => onStartTask(task)}
+                onClick={() => handleStartTask(task)}
                 className="flex items-center gap-1"
                 disabled={task.completed}
               >
@@ -58,5 +66,4 @@ export function TaskList({ tasks, onToggleTask, onStartTask, onDeleteTask }: Tas
         </Card>
       ))}
     </div>
-  );
-}
+  )}

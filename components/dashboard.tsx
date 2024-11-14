@@ -11,7 +11,7 @@ import { useUserStore } from "@/lib/store";
 import { LogOut, ListTodo, Timer, ScrollText, BarChart2, Trophy, Users } from "lucide-react";
 
 export default function Dashboard() {
-  const { userName, clearUserName } = useUserStore();
+  const { userName, clearUserName, activeTab, setActiveTab } = useUserStore();
 
   return (
     <div className="min-h-screen bg-background">
@@ -33,7 +33,7 @@ export default function Dashboard() {
       </header>
 
       <main className="container mx-auto px-4 py-8">
-        <Tabs defaultValue="tasks" className="space-y-4">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
           <TabsList className="grid w-full grid-cols-6 lg:w-[720px]">
             <TabsTrigger value="tasks" className="flex items-center gap-2">
               <ListTodo className="h-4 w-4" />
@@ -87,5 +87,4 @@ export default function Dashboard() {
         </Tabs>
       </main>
     </div>
-  );
-}
+  )}
