@@ -7,11 +7,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { Loader2, LogIn, UserPlus } from 'lucide-react';
 import { registerUser, loginUser } from '@/lib/auth';
+import ResetPassword from './reset-password';
 
 export default function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
+  const [showResetPassword, setShowResetPassword] = useState(false);
   const [formData, setFormData] = useState({
     username: '',
+    email: '',
     password: '',
   });
   const setUserName = useUserStore((state) => state.setUserName);
@@ -19,14 +22,19 @@ export default function LoginForm() {
   const handleSubmit = async (e: React.FormEvent, mode: 'login' | 'register') => {
     e.preventDefault();
     if (!formData.username.trim() || !formData.password) {
-      toast.error('Please fill in all fields');
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    if (mode === 'register' && !formData.email) {
+      toast.error('Please enter your email');
       return;
     }
 
     setIsLoading(true);
     try {
       if (mode === 'register') {
-        await registerUser(formData.username.trim(), formData.password);
+        await registerUser(formData.username.trim(), formData.email.trim(), formData.password);
         toast.success('Registration successful! Please log in.');
         return;
       }
@@ -47,6 +55,14 @@ export default function LoginForm() {
       [e.target.name]: e.target.value,
     }));
   };
+
+  if (showResetPassword) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4">
+        <ResetPassword onBack={() => setShowResetPassword(false)} />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4">
@@ -84,6 +100,15 @@ export default function LoginForm() {
                     disabled={isLoading}
                   />
                 </div>
+                <Button
+                  type="button"
+                  variant="link"
+                  className="w-full"
+                  onClick={() => setShowResetPassword(true)}
+                  disabled={isLoading}
+                >
+                  Forgot password?
+                </Button>
                 <Button type="submit" className="w-full" disabled={isLoading}>
                   {isLoading ? (
                     <>
@@ -108,6 +133,14 @@ export default function LoginForm() {
                     name="username"
                     placeholder="Choose a username"
                     value={formData.username}
+                    onChange={handleInputChange}
+                    disabled={isLoading}
+                  />
+                  <Input
+                    type="email"
+                    name="email"
+                    placeholder="Enter your email"
+                    value={formData.email}
                     onChange={handleInputChange}
                     disabled={isLoading}
                   />

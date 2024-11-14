@@ -116,11 +116,12 @@ create policy "Enable update access for users based on user_name"
 create policy "Enable delete access for users based on user_name"
   on public.community_posts for delete
   using (true);
-
-  -- Add users table for authentication
+  
+-- Add users table for authentication
 create table if not exists public.users (
   id bigint primary key generated always as identity,
   username text unique not null,
+  email text unique not null,
   password_hash text not null,
   created_at timestamp with time zone default now()
 );
@@ -135,4 +136,9 @@ create policy "Enable insert access for all users"
 
 create policy "Enable read access for all users"
   on public.users for select
+  using (true);
+
+-- Add update policy for users
+create policy "Enable update access for users"
+  on public.users for update
   using (true);
