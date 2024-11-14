@@ -5,13 +5,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { Loader2, Plus, Clock, Sun, Dumbbell, Brain, Calendar } from 'lucide-react';
+import { Loader2, Plus, Clock, Sun, Moon, Dumbbell, Brain, Calendar } from 'lucide-react';
 import { format } from 'date-fns';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
 import { WellnessCard } from '@/components/ui/wellness-card';
 import { TaskList } from '@/components/ui/task-list';
 import { Task } from '@/types/task';
 import { formatDuration } from '@/lib/utils';
+import { SleepTimeManager } from '@/components/sleep-time-manager';
 
 export default function TaskManager() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -21,7 +22,6 @@ export default function TaskManager() {
   const { userName } = useUserStore();
   
   // Wellness tracking states
-  const [wakeUpTime, setWakeUpTime] = useState(format(new Date().setHours(6, 30), 'HH:mm'));
   const [exerciseTimer, setExerciseTimer] = useState(15 * 60);
   const [meditationTimer, setMeditationTimer] = useState(15 * 60);
   const [isExerciseActive, setIsExerciseActive] = useState(false);
@@ -182,26 +182,6 @@ export default function TaskManager() {
     }
     setIsMeditationActive(!isMeditationActive);
   };
-
-  const saveWakeUpTime = async () => {
-    try {
-      // Insert a new record for the wake-up time for the current day
-      const { error } = await supabase
-        .from('user_preferences')
-        .insert({
-          user_name: userName,
-          wake_up_time: wakeUpTime, // Storing the time here
-          date: new Date().toISOString().split('T')[0], // Storing the current date
-          updated_at: new Date().toISOString(),
-          created_at: new Date().toISOString(),
-        });
-  
-      if (error) throw error;
-      toast.success('Wake-up time saved successfully!');
-    } catch (error) {
-      toast.error('Failed to save wake-up time');
-    }
-  };
   
   const totalTime = tasks.reduce((acc, task) => acc + task.duration, 0);
   const completedTime = tasks.filter(task => task.completed).reduce((acc, task) => acc + task.duration, 0);
@@ -256,16 +236,7 @@ export default function TaskManager() {
         </Card>
 
         <div className="space-y-4">
-        <WellnessCard
-      icon={<Sun className="h-5 w-5 text-yellow-500" />}
-      title="Wake-Up Time"
-      description="Start your day right"
-      timeInput={{
-        value: wakeUpTime,
-        onChange: setWakeUpTime,
-        onSave: saveWakeUpTime
-      }}
-    />
+          <SleepTimeManager />
 
           <WellnessCard
             icon={<Dumbbell className="h-5 w-5 text-green-500" />}
@@ -275,6 +246,7 @@ export default function TaskManager() {
             isActive={isExerciseActive}
             onToggle={toggleExerciseTimer}
             showTimer
+            duration={exerciseTimer}
           />
 
           <WellnessCard
@@ -285,6 +257,7 @@ export default function TaskManager() {
             isActive={isMeditationActive}
             onToggle={toggleMeditationTimer}
             showTimer
+            duration={meditationTimer}
           />
 
           <Card>

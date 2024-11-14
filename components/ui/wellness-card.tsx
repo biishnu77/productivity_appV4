@@ -1,34 +1,50 @@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
-import { Sun, Play, Pause } from 'lucide-react';
-import { formatTimer } from '@/lib/utils';
+import { useUserStore } from '@/lib/store';
+import { formatDuration } from '@/lib/utils';
 
 interface WellnessCardProps {
   icon: React.ReactNode;
   title: string;
   description: string;
+  timeInput?: {
+    value: string;
+    onChange: (value: string) => void;
+    onSave?: () => void; // Made optional since we might not use it
+  };
   timer?: number;
   isActive?: boolean;
   onToggle?: () => void;
   showTimer?: boolean;
-  timeInput?: {
-    value: string;
-    onChange: (value: string) => void;
-    onSave: () => void;
-  };
+  duration?: number;
 }
 
 export function WellnessCard({
   icon,
   title,
   description,
+  timeInput,
   timer,
   isActive,
   onToggle,
   showTimer,
-  timeInput
+  duration,
 }: WellnessCardProps) {
+  const setActiveTab = useUserStore((state) => state.setActiveTab);
+
+  const handleStart = () => {
+    if (onToggle && duration) {
+      localStorage.setItem('currentTask', JSON.stringify({
+        description: title,
+        duration: duration / 60 // Convert seconds to minutes
+      }));
+      setActiveTab('pomodoro');
+    } else {
+      onToggle?.();
+    }
+  };
+
   return (
     <Card>
       <CardContent className="p-4">
@@ -36,48 +52,34 @@ export function WellnessCard({
           <div className="flex items-center gap-2">
             {icon}
             <div>
-              <div className="font-semibold">{title}</div>
-              <div className="text-sm text-muted-foreground">{description}</div>
+              <h3 className="font-medium">{title}</h3>
+              <p className="text-sm text-muted-foreground">{description}</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            {timeInput && (
-              <>
-                <Input
-                  type="time"
-                  value={timeInput.value} // Controlled value
-                  onChange={(e) => timeInput.onChange(e.target.value)} // Update on change
-                  className="w-32"
-                />
-                <Button onClick={timeInput.onSave} size="sm">Save</Button>
-              </>
-            )}
-            {showTimer && (
-              <>
-                <span className="font-mono text-lg">{formatTimer(timer || 0)}</span>
-                <Button
-                  variant={isActive ? "secondary" : "outline"}
-                  size="sm"
-                  onClick={onToggle}
-                >
-                  {isActive ? (
-                    <><Pause className="h-4 w-4 mr-2" />Pause</>
-                  ) : (
-                    <><Play className="h-4 w-4 mr-2" />Start</>
-                  )}
-                </Button>
-              </>
-            )}
-          </div>
+          {timeInput ? (
+            <div className="flex items-center gap-2">
+              <Input
+                type="time"
+                value={timeInput.value}
+                onChange={(e) => timeInput.onChange(e.target.value)}
+                className="w-32"
+              />
+            </div>
+          ) : showTimer ? (
+            <div className="flex items-center gap-2">
+              <span className="text-lg font-mono">
+                15m
+              </span>
+              <Button
+                onClick={handleStart}
+                variant={isActive ? "destructive" : "default"}
+                size="sm"
+              >
+                {isActive ? "Stop" : "Start"}
+              </Button>
+            </div>
+          ) : null}
         </div>
-        {showTimer && isActive && (
-          <div className="mt-2 w-full bg-secondary h-2 rounded-full overflow-hidden">
-            <div 
-              className="bg-green-500 h-full transition-all duration-1000"
-              style={{ width: `${(timer || 0) / (15 * 60) * 100}%` }}
-            />
-          </div>
-        )}
       </CardContent>
     </Card>
   );
