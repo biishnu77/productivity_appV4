@@ -39,17 +39,6 @@ create table if not exists public.pomodoro_sessions (
   created_at timestamp with time zone default now()
 );
 
--- Notes Table
-create table if not exists public.notes (
-  id bigint primary key generated always as identity,
-  user_name text not null,
-  content text not null,
-  type text check (type in ('morning', 'evening')),
-  date date not null default current_date,
-  created_at timestamp with time zone default now(),
-  updated_at timestamp with time zone default now()
-);
-
 -- Community Posts Table
 create table if not exists public.community_posts (
   id bigint primary key generated always as identity,
@@ -146,17 +135,7 @@ create policy "Enable update access for users"
   using (true);
 
   
--- Add Daily Productivity Table
-CREATE TABLE IF NOT EXISTS public.daily_productivity (
-  id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
-  user_name TEXT NOT NULL,
-  date DATE NOT NULL DEFAULT CURRENT_DATE,
-  productivity_percentage DECIMAL(5,2) NOT NULL,
-  total_work_hours DECIMAL(5,2) NOT NULL,
-  available_hours DECIMAL(5,2) NOT NULL,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  UNIQUE(user_name, date)
-);
+
 
 -- Enable RLS for daily_productivity
 ALTER TABLE public.daily_productivity ENABLE ROW LEVEL SECURITY;
