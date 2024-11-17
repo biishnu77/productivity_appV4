@@ -5,55 +5,117 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Loader2, LogIn, UserPlus } from 'lucide-react';
+import { Loader2, LogIn, UserPlus, AlertCircle } from 'lucide-react';
 import { registerUser, loginUser } from '@/lib/auth';
 import ResetPassword from './reset-password';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+
+interface FormData {
+  username: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+}
 
 export default function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [showResetPassword, setShowResetPassword] = useState(false);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormData>({
     username: '',
     email: '',
     password: '',
+    confirmPassword: '',
   });
+  const [formErrors, setFormErrors] = useState<Partial<FormData>>({});
   const setUserName = useUserStore((state) => state.setUserName);
+
+  const validateForm = (mode: 'login' | 'register'): boolean => {
+    const errors: Partial<FormData> = {};
+    
+    if (!formData.username.trim()) {
+      errors.username = 'Username is required';
+    } else if (formData.username.length < 3) {
+      errors.username = 'Username must be at least 3 characters';
+    }
+
+    if (mode === 'register') {
+      if (!formData.email) {
+        errors.email = 'Email is required';
+      } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+        errors.email = 'Please enter a valid email';
+      }
+
+      if (!formData.password) {
+        errors.password = 'Password is required';
+      } else if (formData.password.length < 6) {
+        errors.password = 'Password must be at least 6 characters';
+      }
+
+      if (formData.password !== formData.confirmPassword) {
+        errors.confirmPassword = 'Passwords do not match';
+      }
+    } else {
+      if (!formData.password) {
+        errors.password = 'Password is required';
+      }
+    }
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
 
   const handleSubmit = async (e: React.FormEvent, mode: 'login' | 'register') => {
     e.preventDefault();
-    if (!formData.username.trim() || !formData.password) {
-      toast.error('Please fill in all required fields');
-      return;
-    }
-
-    if (mode === 'register' && !formData.email) {
-      toast.error('Please enter your email');
+    
+    if (!validateForm(mode)) {
       return;
     }
 
     setIsLoading(true);
     try {
       if (mode === 'register') {
-        await registerUser(formData.username.trim(), formData.email.trim(), formData.password);
+        await registerUser(
+          formData.username.trim(),
+          formData.email.trim(),
+          formData.password
+        );
         toast.success('Registration successful! Please log in.');
+        // Reset form and switch to login tab
+        setFormData({
+          username: '',
+          email: '',
+          password: '',
+          confirmPassword: '',
+        });
+        const loginTab = document.querySelector('[value="login"]') as HTMLElement;
+        if (loginTab) loginTab.click();
         return;
       }
 
-      await loginUser(formData.username.trim(), formData.password);
-      setUserName(formData.username.trim());
+      const userData = await loginUser(formData.username.trim(), formData.password);
+      setUserName(userData.username);
+      localStorage.setItem('userId', userData.id.toString());
       toast.success('Welcome back!');
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Something went wrong');
+      toast.error(error instanceof Error ? error.message : 'Authentication failed');
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [e.target.name]: e.target.value,
+      [name]: value,
     }));
+    // Clear error when user starts typing
+    if (formErrors[name as keyof FormData]) {
+      setFormErrors((prev) => ({
+        ...prev,
+        [name]: '',
+      }));
+    }
   };
 
   if (showResetPassword) {
@@ -90,7 +152,14 @@ export default function LoginForm() {
                     value={formData.username}
                     onChange={handleInputChange}
                     disabled={isLoading}
+                    aria-invalid={!!formErrors.username}
                   />
+                  {formErrors.username && (
+                    <Alert variant="destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>{formErrors.username}</AlertDescription>
+                    </Alert>
+                  )}
                   <Input
                     type="password"
                     name="password"
@@ -98,7 +167,14 @@ export default function LoginForm() {
                     value={formData.password}
                     onChange={handleInputChange}
                     disabled={isLoading}
+                    aria-invalid={!!formErrors.password}
                   />
+                  {formErrors.password && (
+                    <Alert variant="destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>{formErrors.password}</AlertDescription>
+                    </Alert>
+                  )}
                 </div>
                 <Button
                   type="button"
@@ -135,7 +211,14 @@ export default function LoginForm() {
                     value={formData.username}
                     onChange={handleInputChange}
                     disabled={isLoading}
+                    aria-invalid={!!formErrors.username}
                   />
+                  {formErrors.username && (
+                    <Alert variant="destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>{formErrors.username}</AlertDescription>
+                    </Alert>
+                  )}
                   <Input
                     type="email"
                     name="email"
@@ -143,7 +226,14 @@ export default function LoginForm() {
                     value={formData.email}
                     onChange={handleInputChange}
                     disabled={isLoading}
+                    aria-invalid={!!formErrors.email}
                   />
+                  {formErrors.email && (
+                    <Alert variant="destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>{formErrors.email}</AlertDescription>
+                    </Alert>
+                  )}
                   <Input
                     type="password"
                     name="password"
@@ -151,7 +241,29 @@ export default function LoginForm() {
                     value={formData.password}
                     onChange={handleInputChange}
                     disabled={isLoading}
+                    aria-invalid={!!formErrors.password}
                   />
+                  {formErrors.password && (
+                    <Alert variant="destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>{formErrors.password}</AlertDescription>
+                    </Alert>
+                  )}
+                  <Input
+                    type="password"
+                    name="confirmPassword"
+                    placeholder="Confirm password"
+                    value={formData.confirmPassword}
+                    onChange={handleInputChange}
+                    disabled={isLoading}
+                    aria-invalid={!!formErrors.confirmPassword}
+                  />
+                  {formErrors.confirmPassword && (
+                    <Alert variant="destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>{formErrors.confirmPassword}</AlertDescription>
+                    </Alert>
+                  )}
                 </div>
                 <Button type="submit" className="w-full" disabled={isLoading}>
                   {isLoading ? (
