@@ -38,6 +38,11 @@ export default function PomodoroTimer() {
   const sessionSavedRef = useRef(false);
 
   useEffect(() => {
+    // Initialize sound service in browser environment
+    if (typeof window !== 'undefined') {
+      soundService.initialize();
+    }
+
     const checkForTask = () => {
       const savedTask = localStorage.getItem('currentTask');
       if (savedTask) {
