@@ -1,5 +1,3 @@
-"use client";
-
 import { useState, useEffect, useRef } from 'react';
 import { useUserStore } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
@@ -7,9 +5,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
-import { Timer, Play, Pause, RotateCcw, Maximize2, Minimize2, History } from 'lucide-react';
+import { Timer, Play, Pause, RotateCcw, Maximize2, Minimize2, History, Volume2, VolumeX } from 'lucide-react';
 import { format } from 'date-fns';
+import { soundService } from '@/lib/sounds';
 
 interface PomodoroSession {
   id: number;
@@ -30,6 +30,7 @@ export default function PomodoroTimer() {
   const [duration, setDuration] = useState(25);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [sessions, setSessions] = useState<PomodoroSession[]>([]);
+  const [soundEnabled, setSoundEnabled] = useState(true);
   const { userName } = useUserStore();
   const [currentTask, setCurrentTask] = useState<CurrentTask | null>(null);
   const timerRef = useRef<NodeJS.Timeout>();
@@ -52,6 +53,12 @@ export default function PomodoroTimer() {
     checkForTask();
     fetchSessions();
 
+    // Load sound preference
+    const savedSoundPreference = localStorage.getItem('pomodoroSoundEnabled');
+    if (savedSoundPreference !== null) {
+      setSoundEnabled(savedSoundPreference === 'true');
+    }
+
     // Cleanup on unmount
     return () => {
       if (timerRef.current) {
@@ -59,6 +66,12 @@ export default function PomodoroTimer() {
       }
     };
   }, []);
+
+  // Save sound preference
+  useEffect(() => {
+    localStorage.setItem('pomodoroSoundEnabled', soundEnabled.toString());
+    soundService.setVolume(soundEnabled ? 0.5 : 0);
+  }, [soundEnabled]);
 
   // Use visibility change event to maintain accurate timer
   useEffect(() => {
@@ -131,6 +144,11 @@ export default function PomodoroTimer() {
     if (sessionSavedRef.current) return;
     sessionSavedRef.current = true;
     setIsRunning(false);
+    
+    if (soundEnabled) {
+      soundService.play('complete');
+    }
+    
     toast.success('Pomodoro session completed!');
     
     try {
@@ -173,6 +191,11 @@ export default function PomodoroTimer() {
       }
       sessionSavedRef.current = false;
     }
+    
+    if (soundEnabled) {
+      soundService.play(isRunning ? 'pause' : 'start');
+    }
+    
     setIsRunning(!isRunning);
   };
 
@@ -183,6 +206,10 @@ export default function PomodoroTimer() {
       setTimeLeft(currentTask.duration * 60);
     } else {
       setTimeLeft(duration * 60);
+    }
+    
+    if (soundEnabled) {
+      soundService.play('reset');
     }
   };
 
@@ -214,6 +241,17 @@ export default function PomodoroTimer() {
       <div className={`transition-all duration-300 ${isFullscreen ? 'fixed inset-0 bg-background flex items-center justify-center z-50' : ''}`}>
         <Card className={`${isFullscreen ? 'w-full h-full flex items-center justify-center' : 'w-full'}`}>
           <CardContent className={`p-6 space-y-6 ${isFullscreen ? 'text-center' : ''}`}>
+            <div className="flex justify-end">
+              <div className="flex items-center space-x-2">
+                {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+                <Switch
+                  checked={soundEnabled}
+                  onCheckedChange={setSoundEnabled}
+                  aria-label="Toggle sound"
+                />
+              </div>
+            </div>
+            
             {currentTask && (
               <div className="text-center text-muted-foreground mb-4">
                 Current Task: {currentTask.description}

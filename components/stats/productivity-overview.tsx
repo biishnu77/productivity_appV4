@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ResponsiveContainer, LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip } from 'recharts';
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip } from 'recharts';
 
 interface ProductivityOverviewProps {
   data: Array<{
@@ -12,10 +12,17 @@ interface ProductivityOverviewProps {
 }
 
 export function ProductivityOverview({ data, timePeriod, onTimePeriodChange }: ProductivityOverviewProps) {
+  const averageProductivity = data.reduce((sum, day) => sum + day.productivity, 0) / data.length;
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>Productivity Overview</CardTitle>
+        <div>
+          <CardTitle>Productivity Overview</CardTitle>
+          <p className="text-sm text-muted-foreground mt-1">
+            Average: {averageProductivity.toFixed(1)}%
+          </p>
+        </div>
         <div className="flex gap-2">
           <Button
             variant={timePeriod === 'weekly' ? 'default' : 'outline'}
@@ -36,15 +43,14 @@ export function ProductivityOverview({ data, timePeriod, onTimePeriodChange }: P
       <CardContent>
         <div className="h-[400px]">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" />
+            <LineChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
               <XAxis
                 dataKey="date"
-                axisLine={false}
+                axisLine={{ stroke: 'hsl(var(--border))' }}
                 tickLine={false}
               />
               <YAxis
-                axisLine={false}
+                axisLine={{ stroke: 'hsl(var(--border))' }}
                 tickLine={false}
                 domain={[0, 100]}
                 tickFormatter={(value) => `${value}%`}
@@ -62,8 +68,8 @@ export function ProductivityOverview({ data, timePeriod, onTimePeriodChange }: P
                 dataKey="productivity"
                 stroke="hsl(var(--primary))"
                 strokeWidth={2}
-                dot={{ r: 4 }}
-                activeDot={{ r: 6 }}
+                dot={{ r: 4, fill: 'hsl(var(--primary))' }}
+                activeDot={{ r: 6, fill: 'hsl(var(--primary))' }}
               />
             </LineChart>
           </ResponsiveContainer>

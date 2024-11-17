@@ -207,7 +207,7 @@ export default function TaskManager() {
           <CardContent className="p-4">
             <div className="text-lg font-semibold mb-2">Time Overview</div>
             <div className="text-sm text-muted-foreground mb-4">
-              Total time needed: {formatDuration(totalTime)}
+              Total time needed: {formatDuration(remainingTime)}
             </div>
             <div className="h-[200px]">
               <ResponsiveContainer width="100%" height="100%">

@@ -2,7 +2,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { useUserStore } from '@/lib/store';
-import { formatDuration } from '@/lib/utils';
 
 interface WellnessCardProps {
   icon: React.ReactNode;

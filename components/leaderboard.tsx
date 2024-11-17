@@ -1,134 +1,247 @@
-"use client";
-
-import { useEffect, useState } from 'react';
-import { useUserStore } from '@/lib/store';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Trophy, Medal, Clock } from 'lucide-react';
-import { format, startOfWeek } from 'date-fns';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Trophy, Crown, Clock, Calendar } from 'lucide-react';
+import { format, startOfWeek, endOfWeek, subWeeks } from 'date-fns';
+import { toast } from 'sonner';
+import { WeeklyStats } from './leaderboard/weekly-stats';
+import { formatDurations, calculateDailyAverage } from '@/lib/utils';
 
-interface LeaderStats {
+interface WeeklyPerformance {
   user_name: string;
-  total_minutes: number;
-  daily_average: number;
+  total_seconds: number;
+  position: number;
+  week_start: string;
+  week_end: string;
+}
+
+interface WeeklyWinners {
+  weekStart: string;
+  weekEnd: string;
+  winners: WeeklyPerformance[];
 }
 
 export default function Leaderboard() {
-  const [leaders, setLeaders] = useState<LeaderStats[]>([]);
-  const { userName } = useUserStore();
+  const [currentWeekLeaders, setCurrentWeekLeaders] = useState<WeeklyPerformance[]>([]);
+  const [previousWeeks, setPreviousWeeks] = useState<WeeklyWinners[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchLeaderboard();
+    fetchWeeklyData();
+    // Refresh data every 5 minutes
+    const interval = setInterval(fetchWeeklyData, 5 * 60 * 1000);
+    return () => clearInterval(interval);
   }, []);
 
-  const fetchLeaderboard = async () => {
+  const calculateWeeklyStats = (data: any[], weekStart: Date, weekEnd: Date) => {
+    const userStats = new Map<string, number>();
+    
+    data?.forEach((session) => {
+      const current = userStats.get(session.user_name) || 0;
+      userStats.set(session.user_name, current + session.duration); // duration is in seconds from DB
+    });
+
+    return Array.from(userStats.entries())
+      .map(([user_name, total_seconds]) => ({
+        user_name,
+        total_seconds,
+        week_start: format(weekStart, 'MMM d'),
+        week_end: format(weekEnd, 'MMM d'),
+      }))
+      .sort((a, b) => b.total_seconds - a.total_seconds)
+      .map((stats, index) => ({
+        ...stats,
+        position: index + 1,
+      }));
+  };
+
+  const fetchWeeklyData = async () => {
     try {
-      const startDate = format(startOfWeek(new Date()), 'yyyy-MM-dd');
-      
-      const { data } = await supabase
+      // Current week
+      const currentWeekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
+      const currentWeekEnd = endOfWeek(new Date(), { weekStartsOn: 1 });
+
+      const { data: currentData, error: currentError } = await supabase
         .from('pomodoro_sessions')
-        .select('user_name, duration, completed_at')
-        .gte('completed_at', startDate);
+        .select('user_name, duration')
+        .gte('completed_at', currentWeekStart.toISOString())
+        .lte('completed_at', currentWeekEnd.toISOString());
 
-      if (data) {
-        const userStats = data.reduce((acc: { [key: string]: number[] }, session) => {
-          if (!acc[session.user_name]) {
-            acc[session.user_name] = [];
-          }
-          acc[session.user_name].push(session.duration / 60); // Convert to minutes
-          return acc;
-        }, {});
+      if (currentError) throw currentError;
 
-        const leaderStats: LeaderStats[] = Object.entries(userStats).map(([user, minutes]) => ({
-          user_name: user,
-          total_minutes: minutes.reduce((sum, min) => sum + min, 0),
-          daily_average: minutes.reduce((sum, min) => sum + min, 0) / 7
-        }));
+      const currentWeekStats = calculateWeeklyStats(
+        currentData,
+        currentWeekStart,
+        currentWeekEnd
+      );
+      setCurrentWeekLeaders(currentWeekStats);
 
-        setLeaders(leaderStats.sort((a, b) => b.total_minutes - a.total_minutes));
+      // Previous weeks
+      const previousWeeksData = [];
+      for (let i = 1; i <= 4; i++) {
+        const weekStart = startOfWeek(subWeeks(new Date(), i), { weekStartsOn: 1 });
+        const weekEnd = endOfWeek(subWeeks(new Date(), i), { weekStartsOn: 1 });
+
+        const { data: weekData, error: weekError } = await supabase
+          .from('pomodoro_sessions')
+          .select('user_name, duration')
+          .gte('completed_at', weekStart.toISOString())
+          .lte('completed_at', weekEnd.toISOString());
+
+        if (weekError) throw weekError;
+
+        const weekStats = calculateWeeklyStats(weekData, weekStart, weekEnd);
+        if (weekStats.length > 0) {
+          previousWeeksData.push({
+            weekStart: format(weekStart, 'MMM d'),
+            weekEnd: format(weekEnd, 'MMM d'),
+            winners: weekStats.slice(0, 3) // Get top 3 winners
+          });
+        }
       }
+
+      setPreviousWeeks(previousWeeksData);
     } catch (error) {
-      console.error('Error fetching leaderboard:', error);
+      toast.error('Failed to fetch leaderboard data');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const formatTime = (minutes: number) => {
-    const hours = Math.floor(minutes / 60);
-    const mins = Math.round(minutes % 60);
-    return `${hours}h ${mins}m`;
-  };
-
-  const getRankIcon = (index: number) => {
-    switch (index) {
-      case 0:
-        return <Trophy className="h-5 w-5 text-yellow-500" />;
-      case 1:
-        return <Medal className="h-5 w-5 text-gray-400" />;
-      case 2:
-        return <Medal className="h-5 w-5 text-amber-600" />;
-      default:
-        return <Clock className="h-5 w-5 text-muted-foreground" />;
-    }
-  };
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-3">
-        {leaders.slice(0, 3).map((leader, index) => (
-          <Card key={leader.user_name} className={`${leader.user_name === userName ? 'border-2 border-primary' : ''}`}>
+      <Tabs defaultValue="current" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="current" className="flex items-center gap-2">
+            <Trophy className="h-4 w-4" />
+            This Week
+          </TabsTrigger>
+          <TabsTrigger value="previous" className="flex items-center gap-2">
+            <Crown className="h-4 w-4" />
+            Hall of Fame
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="current">
+          <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                {getRankIcon(index)}
-                <span className="truncate">{leader.user_name}</span>
+                <Trophy className="h-5 w-5 text-yellow-500" />
+                This Week's Leaderboard
+                <span className="text-sm font-normal text-muted-foreground ml-2">
+                  (Week of {currentWeekLeaders[0]?.week_start} - {currentWeekLeaders[0]?.week_end})
+                </span>
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-2">
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Focus Time</p>
-                  <p className="text-2xl font-bold">{formatTime(leader.total_minutes)}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Daily Average</p>
-                  <p className="text-lg font-semibold">{formatTime(leader.daily_average)}</p>
-                </div>
-              </div>
+              <ScrollArea className="h-[400px] pr-4">
+                {currentWeekLeaders.map((leader) => (
+                  <div
+                    key={leader.user_name}
+                    className="flex items-center justify-between py-3 border-b last:border-0"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`font-bold ${
+                        leader.position === 1 ? 'text-yellow-500' :
+                        leader.position === 2 ? 'text-gray-400' :
+                        leader.position === 3 ? 'text-amber-600' :
+                        'text-muted-foreground'
+                      }`}>
+                        {leader.position === 1 ? '👑' : 
+                         leader.position === 2 ? '🥈' :
+                         leader.position === 3 ? '🥉' :
+                         `#${leader.position}`}
+                      </div>
+                      <div>
+                        <div className="font-medium">{leader.user_name}</div>
+                        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                          <div className="flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            Total: {formatDurations(leader.total_seconds)}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Calendar className="h-3 w-3" />
+                            Daily avg: {calculateDailyAverage(leader.total_seconds)}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    {leader.position === 1 && (
+                      <div className="text-yellow-500 text-sm font-medium animate-pulse">
+                        Current Leader 🏆
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </ScrollArea>
             </CardContent>
           </Card>
-        ))}
-      </div>
+        </TabsContent>
 
-      {leaders.length > 3 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Other Participants</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {leaders.slice(3).map((leader, index) => (
-                <div
-                  key={leader.user_name}
-                  className={`flex items-center justify-between p-4 rounded-lg bg-muted/50 
-                    ${leader.user_name === userName ? 'border-2 border-primary' : ''}`}
-                >
-                  <div className="flex items-center gap-4">
-                    <span className="text-lg font-semibold text-muted-foreground">
-                      #{index + 4}
-                    </span>
-                    <div>
-                      <p className="font-medium">{leader.user_name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        Daily Avg: {formatTime(leader.daily_average)}
-                      </p>
+        <TabsContent value="previous">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Crown className="h-5 w-5 text-yellow-500" />
+                Previous Weeks Top 3
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ScrollArea className="h-[400px] pr-4">
+                {previousWeeks.map((week, weekIndex) => (
+                  <div key={weekIndex} className="mb-6 last:mb-0">
+                    <h3 className="text-sm font-medium mb-3">
+                      Week of {week.weekStart} - {week.weekEnd}
+                    </h3>
+                    <div className="space-y-4">
+                      {week.winners.map((winner) => (
+                        <div
+                          key={`${winner.user_name}-${weekIndex}`}
+                          className="flex items-center justify-between py-2 px-3 bg-muted/50 rounded-lg"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`font-bold ${
+                              winner.position === 1 ? 'text-yellow-500' :
+                              winner.position === 2 ? 'text-gray-400' :
+                              'text-amber-600'
+                            }`}>
+                              {winner.position === 1 ? '👑' : 
+                               winner.position === 2 ? '🥈' : '🥉'}
+                            </div>
+                            <div>
+                              <div className="font-medium">{winner.user_name}</div>
+                              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                                <div className="flex items-center gap-1">
+                                  <Clock className="h-3 w-3" />
+                                  Total: {formatDurations(winner.total_seconds)}
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <Calendar className="h-3 w-3" />
+                                  Daily avg: {calculateDailyAverage(winner.total_seconds)}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                  <p className="font-semibold">{formatTime(leader.total_minutes)}</p>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+                ))}
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

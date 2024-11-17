@@ -10,6 +10,7 @@ import { ProductivityOverview } from './stats/productivity-overview';
 interface TimeData {
   date: string;
   workHours: number;
+  completedTime: number;
   productivity: number;
 }
 
@@ -36,6 +37,90 @@ export default function DailyStats() {
   const [productivityPercentage, setProductivityPercentage] = useState(0);
   const [remainingTime, setRemainingTime] = useState('');
   const { userName } = useUserStore();
+
+  const calculateDailyProductivity = (completedTime: number, workHours: number): number => {
+    if (workHours === 0) return 0;
+    // Convert completedTime from minutes to hours for calculation
+    const completedHours = completedTime / 60;
+    return (completedHours / workHours) * 100;
+  };
+
+  const fetchStats = async () => {
+    const startDate = timePeriod === 'weekly' ? 
+      startOfWeek(new Date()) : 
+      startOfMonth(new Date());
+
+    const { data: tasks } = await supabase
+      .from('tasks')
+      .select('*')
+      .eq('user_name', userName)
+      .gte('created_at', format(startDate, 'yyyy-MM-dd'))
+      .order('created_at', { ascending: true });
+
+    const { data: sleepSchedule } = await supabase
+      .from('user_preferences')
+      .select('wake_up_time, sleep_time, date')
+      .eq('user_name', userName)
+      .gte('date', format(startDate, 'yyyy-MM-dd'))
+      .order('date', { ascending: true });
+
+    if (tasks && sleepSchedule) {
+      // Create a map of sleep schedules by date
+      const sleepScheduleMap = sleepSchedule.reduce((acc, schedule) => {
+        acc[schedule.date] = {
+          wake_up_time: schedule.wake_up_time,
+          sleep_time: schedule.sleep_time
+        };
+        return acc;
+      }, {} as Record<string, { wake_up_time: string; sleep_time: string }>);
+
+      // Group tasks by date and calculate completed time
+      const tasksByDate = tasks.reduce((acc, task) => {
+        const date = format(new Date(task.created_at), 'yyyy-MM-dd');
+        if (!acc[date]) {
+          acc[date] = {
+            completedTime: 0,
+            totalTasks: 0
+          };
+        }
+        if (task.completed) {
+          acc[date].completedTime += task.duration; // Duration in minutes
+        }
+        acc[date].totalTasks += 1;
+        return acc;
+      }, {} as Record<string, { completedTime: number; totalTasks: number }>);
+
+      // Calculate daily work hours and productivity
+      const daysToShow = timePeriod === 'weekly' ? 7 : 30;
+      const dailyStats = Array.from({ length: daysToShow }, (_, i) => {
+        const date = addDays(startDate, i);
+        const dateStr = format(date, 'yyyy-MM-dd');
+        const daySchedule = sleepScheduleMap[dateStr];
+        
+        let workHours = 0;
+        if (daySchedule) {
+          const wakeUp = parse(daySchedule.wake_up_time, 'HH:mm', date);
+          let sleep = parse(daySchedule.sleep_time, 'HH:mm', date);
+          if (sleep < wakeUp) {
+            sleep = addDays(sleep, 1);
+          }
+          workHours = differenceInHours(sleep, wakeUp);
+        }
+
+        const dayData = tasksByDate[dateStr] || { completedTime: 0, totalTasks: 0 };
+        const productivity = calculateDailyProductivity(dayData.completedTime, workHours);
+
+        return {
+          date: format(date, 'EEE'), // Show day name (Mon, Tue, etc.)
+          completedTime: dayData.completedTime / 60, // Convert to hours
+          workHours,
+          productivity: Number(productivity.toFixed(1))
+        };
+      });
+
+      setTimeData(dailyStats);
+    }
+  };
 
   const updateRemainingTime = useCallback(() => {
     if (sleepData?.sleep_time) {
@@ -92,25 +177,6 @@ export default function DailyStats() {
     
     if (differenceInSeconds(endOfDay, now) <= 60) {
       await saveDailyProductivity();
-    }
-  };
-
-  const fetchStats = async () => {
-    const startDate = timePeriod === 'weekly' ? startOfWeek(new Date()) : startOfMonth(new Date());
-    const { data } = await supabase
-      .from('daily_productivity')
-      .select('*')
-      .eq('user_name', userName)
-      .gte('date', format(startDate, 'yyyy-MM-dd'))
-      .order('date', { ascending: true });
-
-    if (data) {
-      const formattedData = data.map(item => ({
-        date: format(new Date(item.date), 'MM/dd'),
-        workHours: Number(item.total_work_hours),
-        productivity: Number(item.productivity_percentage)
-      }));
-      setTimeData(formattedData);
     }
   };
 
@@ -176,8 +242,7 @@ export default function DailyStats() {
         }
 
         const availableHours = differenceInHours(sleepTime, wakeUp);
-        const workedHours = todayStats.completedTime / 60;
-        const productivity = (workedHours / availableHours) * 100;
+        const productivity = calculateDailyProductivity(todayStats.completedTime, availableHours);
         
         setProductivityPercentage(Math.min(productivity, 100));
         setTotalWorkHours(availableHours);
@@ -216,8 +281,7 @@ export default function DailyStats() {
       }
 
       const availableHours = differenceInHours(sleepTime, wakeUp);
-      const workedHours = todayStats.completedTime / 60;
-      const productivity = (workedHours / availableHours) * 100;
+      const productivity = calculateDailyProductivity(todayStats.completedTime, availableHours);
 
       await supabase
         .from('daily_productivity')
@@ -225,7 +289,7 @@ export default function DailyStats() {
           user_name: userName,
           date: today,
           productivity_percentage: Math.min(productivity, 100),
-          total_work_hours: workedHours,
+          total_work_hours: todayStats.completedTime / 60,
           available_hours: availableHours,
           completed_tasks_minutes: todayStats.completedTime,
           pending_tasks_minutes: todayStats.pendingTime
