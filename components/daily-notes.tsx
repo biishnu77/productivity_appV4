@@ -27,6 +27,7 @@ export default function DiaryEntry() {
   const [habits, setHabits] = useState(DEFAULT_HABITS);
   const [scores, setScores] = useState(DEFAULT_SCORES);
   const [isEditing, setIsEditing] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const { userName } = useUserStore();
 
   useEffect(() => {
@@ -52,6 +53,8 @@ export default function DiaryEntry() {
       resetForm();
       setIsEditing(true);
     }
+    // Close sidebar on mobile after selecting a date
+    setIsSidebarOpen(false);
   }, [selectedDate, entries]);
 
   const resetForm = () => {
@@ -124,7 +127,7 @@ export default function DiaryEntry() {
 
   if (!userName) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900">
         <Card className="p-6">
           <h2 className="text-xl font-semibold mb-4">Please log in to view your diary</h2>
         </Card>
@@ -133,94 +136,111 @@ export default function DiaryEntry() {
   }
 
   return (
-    <div className="flex gap-6 p-6 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-screen">
-      <div className="w-64 shrink-0">
-        <HistoryPanel
-          entries={entries}
-          selectedDate={selectedDate}
-          onDateSelect={setSelectedDate}
-        />
-      </div>
-
-      <Card className="flex-1 p-6 space-y-6 bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700">
-        
-        <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-          <div className="grid grid-cols-[1fr,1.5fr,3fr] bg-gray-100 dark:bg-gray-900 text-gray-900 dark:text-white">
-            <div className="p-3 font-semibold">Day</div>
-            <div className="p-3 font-semibold">Date</div>
-            <div className="p-3 font-semibold">Habits</div>
-          </div>
-          
-          <div className="grid grid-cols-[1fr,1.5fr,3fr] bg-white dark:bg-gray-800">
-            <div className="p-3 border-r border-gray-200 dark:border-gray-700">
-              {entries.find(e => e.date === selectedDate)?.day_number || entries.length + 1}
-            </div>
-            <div className="p-3 border-r border-gray-200 dark:border-gray-700">
-              {format(new Date(selectedDate), 'MM/dd/yyyy')}
-            </div>
-            <div className="divide-y divide-gray-200 dark:divide-gray-700">
-              <HabitsList 
-                habits={habits} 
-                onToggleHabit={toggleHabit}
-                disabled={!isEditing}
-              />
-            </div>
-          </div>
-        </div>
-
-        <div>
-          <div className="bg-gray-900 dark:bg-white text-white dark:text-gray-900 p-3 rounded-t-lg">
-            <h2 className="text-lg font-semibold">Younger self</h2>
-          </div>
-          <div className="p-4 border border-gray-200 dark:border-gray-700 rounded-b-lg bg-white dark:bg-gray-800">
-            <Textarea
-              value={youngerSelf}
-              onChange={(e) => isEditing && setYoungerSelf(e.target.value)}
-              placeholder="Write a message to your younger self..."
-              className="bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 border-gray-200 dark:border-gray-600 focus:border-gray-400 dark:focus:border-gray-500"
-              disabled={!isEditing}
-            />
-          </div>
-        </div>
-
-        <div>
-          <div className="bg-gray-900 dark:bg-white text-white dark:text-gray-900 p-3 rounded-t-lg">
-            <h2 className="text-lg font-semibold">Lesson</h2>
-          </div>
-          <div className="p-4 border border-gray-200 dark:border-gray-700 rounded-b-lg bg-white dark:bg-gray-800">
-            <Textarea
-              value={lesson}
-              onChange={(e) => isEditing && setLesson(e.target.value)}
-              placeholder="What lesson did you learn today?"
-              className="bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 border-gray-200 dark:border-gray-600 focus:border-gray-400 dark:focus:border-gray-500"
-              disabled={!isEditing}
-            />
-          </div>
-        </div>
-
-        <div>
-          <div className="bg-gray-900 dark:bg-white text-white dark:text-gray-900 p-3 rounded-t-lg">
-            <h2 className="text-lg font-semibold">Scoring - 10</h2>
-          </div>
-          <div className="border border-gray-200 dark:border-gray-700 rounded-b-lg bg-white dark:bg-gray-800">
-            <ScoresSection 
-              scores={scores} 
-              onScoreChange={handleScoreChange}
-              disabled={!isEditing}
-            />
-          </div>
-        </div>
-
-        {isEditing && (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="container mx-auto px-4 py-6">
+        <div className="lg:hidden mb-4">
           <Button
-            className="w-full bg-gray-900 dark:bg-white text-white dark:text-gray-900 hover:bg-gray-800 dark:hover:bg-gray-100"
-            size="lg"
-            onClick={saveDiaryEntry}
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            variant="outline"
+            className="w-full"
           >
-            Save Entry
+            {isSidebarOpen ? 'Hide Calendar' : 'Show Calendar'}
           </Button>
-        )}
-      </Card>
+        </div>
+
+        <div className="flex flex-col lg:flex-row gap-6">
+          {/* Sidebar */}
+          <div className={`
+            lg:w-64 lg:shrink-0
+            ${isSidebarOpen ? 'block' : 'hidden lg:block'}
+            transition-all duration-300 ease-in-out
+          `}>
+            <HistoryPanel
+              entries={entries}
+              selectedDate={selectedDate}
+              onDateSelect={setSelectedDate}
+            />
+          </div>
+
+          {/* Main Content */}
+          <Card className="flex-1 p-4 md:p-6 space-y-6 bg-dark dark:bg-gray-800 border-gray-200 dark:border-gray-700">
+            <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+              <div className="grid grid-cols-[1fr,1.5fr,2fr] md:grid-cols-[1fr,1.5fr,3fr] bg-gray-900 dark:bg-gray-900 text-white">
+                <div className="p-3 font-semibold">Day</div>
+                <div className="p-3 font-semibold">Date</div>
+                <div className="p-3 font-semibold">Habits</div>
+              </div>
+              
+              <div className="grid grid-cols-[1fr,1.5fr,2fr] md:grid-cols-[1fr,1.5fr,3fr] bg-white dark:bg-gray-800">
+                <div className="p-3 border-r border-gray-200 dark:border-gray-700">
+                  {entries.find(e => e.date === selectedDate)?.day_number || entries.length + 1}
+                </div>
+                <div className="p-3 border-r border-gray-200 dark:border-gray-700">
+                  {format(new Date(selectedDate), 'MM/dd/yyyy')}
+                </div>
+                <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                  <HabitsList 
+                    habits={habits} 
+                    onToggleHabit={toggleHabit}
+                    disabled={!isEditing}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Text Areas */}
+            {['Younger self', 'Lesson'].map((section, index) => (
+              <div key={section}>
+                <div className="bg-gray-900 dark:bg-gray-900 text-white p-3 rounded-t-lg">
+                  <h2 className="text-lg font-semibold">{section}</h2>
+                </div>
+                <div className="p-4 border border-gray-200 dark:border-gray-700 rounded-b-lg bg-white dark:bg-gray-800">
+                  <Textarea
+                    value={index === 0 ? youngerSelf : lesson}
+                    onChange={(e) => {
+                      if (isEditing) {
+                        index === 0 
+                          ? setYoungerSelf(e.target.value)
+                          : setLesson(e.target.value);
+                      }
+                    }}
+                    placeholder={index === 0 
+                      ? "Write a message to your younger self..."
+                      : "What lesson did you learn today?"
+                    }
+                    className="bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 border-gray-200 dark:border-gray-600 focus:border-gray-400 dark:focus:border-gray-500"
+                    disabled={!isEditing}
+                  />
+                </div>
+              </div>
+            ))}
+
+            {/* Scores Section */}
+            <div>
+              <div className="bg-gray-900 dark:bg-gray-900 text-white p-3 rounded-t-lg">
+                <h2 className="text-lg font-semibold">Scoring - 10</h2>
+              </div>
+              <div className="border border-gray-200 dark:border-gray-700 rounded-b-lg bg-white dark:bg-gray-800">
+                <ScoresSection 
+                  scores={scores} 
+                  onScoreChange={handleScoreChange}
+                  disabled={!isEditing}
+                />
+              </div>
+            </div>
+
+            {isEditing && (
+              <Button
+                className="w-full bg-gray-900 dark:bg-gray-900 text-white hover:bg-gray-800 dark:hover:bg-gray-800"
+                size="lg"
+                onClick={saveDiaryEntry}
+              >
+                Save Entry
+              </Button>
+            )}
+          </Card>
+        </div>
+      </div>
     </div>
   );
 }

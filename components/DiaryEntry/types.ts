@@ -26,8 +26,8 @@ export interface Scores {
 }
 
 export const DEFAULT_HABITS: DailyHabit[] = [
-  { habit_name: 'Reading', completed: false },
-  { habit_name: 'No social media', completed: false },
-  { habit_name: 'Gym', completed: false },
-  { habit_name: '12h work', completed: false }
+  { habit_name: 'Exercise', completed: false },
+  { habit_name: 'Meditation', completed: false },
+  { habit_name: 'No Social Media', completed: false },
+  { habit_name: '8h work', completed: false }
 ];
