@@ -2,8 +2,8 @@ export interface DiaryEntry {
   id: number;
   date: string;
   day_number: number;
-  younger_self: string;
-  lesson: string;
+  lesson_learned: string;
+  tomorrow_better: string;
   task_completion: number;
   focus_level: number;
   time_management: number;

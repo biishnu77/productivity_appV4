@@ -162,7 +162,7 @@ CREATE TABLE IF NOT EXISTS public.diary_entries (
   user_name TEXT NOT NULL,
   date DATE NOT NULL DEFAULT CURRENT_DATE,
   day_number INTEGER NOT NULL,
-  younger_self TEXT,
+  lesson_learned TEXT,
   lesson TEXT,
   task_completion INTEGER CHECK (task_completion BETWEEN 0 AND 10),
   focus_level INTEGER CHECK (focus_level BETWEEN 0 AND 10),
