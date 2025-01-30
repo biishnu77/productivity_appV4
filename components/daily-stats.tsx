@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useUserStore } from '@/lib/store';
 import { supabase } from '@/lib/supabase';
-import { format, startOfWeek, startOfMonth, addDays, differenceInSeconds, parse, differenceInHours } from 'date-fns';
+import { format, startOfWeek, startOfMonth, addDays, differenceInSeconds, parse, differenceInHours, differenceInDays } from 'date-fns';
 import { Loader2 } from 'lucide-react';
 import { WeeklyStats } from './stats/weekly-stats';
 import { ScheduleCard } from './stats/schedule-card';
@@ -40,7 +40,6 @@ export default function DailyStats() {
 
   const calculateDailyProductivity = (completedTime: number, workHours: number): number => {
     if (workHours === 0) return 0;
-    // Convert completedTime from minutes to hours for calculation
     const completedHours = completedTime / 60;
     return (completedHours / workHours) * 100;
   };
@@ -65,7 +64,6 @@ export default function DailyStats() {
       .order('date', { ascending: true });
 
     if (tasks && sleepSchedule) {
-      // Create a map of sleep schedules by date
       const sleepScheduleMap = sleepSchedule.reduce((acc, schedule) => {
         acc[schedule.date] = {
           wake_up_time: schedule.wake_up_time,
@@ -74,7 +72,6 @@ export default function DailyStats() {
         return acc;
       }, {} as Record<string, { wake_up_time: string; sleep_time: string }>);
 
-      // Group tasks by date and calculate completed time
       const tasksByDate = tasks.reduce((acc, task) => {
         const date = format(new Date(task.created_at), 'yyyy-MM-dd');
         if (!acc[date]) {
@@ -84,13 +81,12 @@ export default function DailyStats() {
           };
         }
         if (task.completed) {
-          acc[date].completedTime += task.duration; // Duration in minutes
+          acc[date].completedTime += task.duration;
         }
         acc[date].totalTasks += 1;
         return acc;
       }, {} as Record<string, { completedTime: number; totalTasks: number }>);
 
-      // Calculate daily work hours and productivity
       const daysToShow = timePeriod === 'weekly' ? 7 : 30;
       const dailyStats = Array.from({ length: daysToShow }, (_, i) => {
         const date = addDays(startDate, i);
@@ -111,8 +107,8 @@ export default function DailyStats() {
         const productivity = calculateDailyProductivity(dayData.completedTime, workHours);
 
         return {
-          date: format(date, 'EEE'), // Show day name (Mon, Tue, etc.)
-          completedTime: dayData.completedTime / 60, // Convert to hours
+          date: format(date, 'EEE'),
+          completedTime: dayData.completedTime / 60,
           workHours,
           productivity: Number(productivity.toFixed(1))
         };
@@ -125,16 +121,16 @@ export default function DailyStats() {
   const updateRemainingTime = useCallback(() => {
     if (sleepData?.sleep_time) {
       const now = new Date();
-      const sleepTime = parse(sleepData.sleep_time, 'HH:mm', now);
+      const todaySleepTime = parse(sleepData.sleep_time, 'HH:mm', now);
       
-      if (sleepTime < now) {
-        sleepTime.setDate(sleepTime.getDate() + 1);
-      }
+      // Calculate remaining time only if sleep time hasn't passed today
+      const remainingSeconds = todaySleepTime > now 
+        ? differenceInSeconds(todaySleepTime, now)
+        : 0;
 
-      const remaining = differenceInSeconds(sleepTime, now);
-      const hours = Math.floor(remaining / 3600);
-      const minutes = Math.floor((remaining % 3600) / 60);
-      const seconds = remaining % 60;
+      const hours = Math.floor(remainingSeconds / 3600);
+      const minutes = Math.floor((remainingSeconds % 3600) / 60);
+      const seconds = remainingSeconds % 60;
 
       setRemainingTime(
         `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
@@ -312,6 +308,14 @@ export default function DailyStats() {
     }
   };
 
+  const calculateWeeklyAverage = () => {
+    const today = new Date();
+    const weekStart = startOfWeek(today, { weekStartsOn: 0 });
+    const daysPassed = differenceInDays(today, weekStart) + 1;
+    const weeklyTotal = taskStats.reduce((sum, stat) => sum + stat.completedTime, 0);
+    return weeklyTotal / Math.max(daysPassed, 1);
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -327,7 +331,6 @@ export default function DailyStats() {
   };
 
   const weeklyTotalTime = taskStats.reduce((sum, stat) => sum + stat.completedTime, 0);
-  const weeklyAverageTime = weeklyTotalTime / 7;
 
   return (
     <div className="grid gap-4 md:grid-cols-2">
@@ -349,7 +352,7 @@ export default function DailyStats() {
         <WeeklyStats
           data={timeData}
           totalTime={weeklyTotalTime}
-          dailyAverage={weeklyAverageTime}
+          dailyAverage={calculateWeeklyAverage()}
           formatMinutes={formatMinutes}
         />
       </div>
