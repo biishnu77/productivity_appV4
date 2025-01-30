@@ -20,23 +20,55 @@ export default function TaskManager() {
   const [duration, setDuration] = useState('30');
   const [loading, setLoading] = useState(true);
   const { userName } = useUserStore();
-  
+  const [weeklyLogins, setWeeklyLogins] = useState<{ date: string; logged: boolean }[]>([]);
   // Wellness tracking states
   const [exerciseTimer, setExerciseTimer] = useState(15 * 60);
   const [meditationTimer, setMeditationTimer] = useState(15 * 60);
   const [isExerciseActive, setIsExerciseActive] = useState(false);
   const [isMeditationActive, setIsMeditationActive] = useState(false);
-  const [weeklyProgress] = useState(() => {
-    return Array(7).fill(null).map((_, i) => ({
-      date: format(new Date(Date.now() - i * 24 * 60 * 60 * 1000), 'EEE'),
-      completion: Math.random() * 100
-    }));
-  });
 
   useEffect(() => {
     if (userName) {
       fetchTasks();
     }
+  }, [userName]);
+  useEffect(() => {
+    const fetchWeeklyLogins = async () => {
+      if (!userName) return;
+  
+      const today = new Date();
+      const startDate = new Date(today);
+      startDate.setDate(today.getDate() - 6); // 6 days ago
+  
+      try {
+        const { data, error } = await supabase
+          .from('logins')
+          .select('login_date')
+          .eq('user_name', userName)
+          .gte('login_date', startDate.toISOString().split('T')[0])
+          .lte('login_date', today.toISOString().split('T')[0]);
+  
+        if (error) throw error;
+  
+        const loginDates = data.map(entry => entry.login_date);
+  
+        // Generate last 7 days in chronological order
+        const days = Array.from({ length: 7 }, (_, i) => {
+          const currentDate = new Date(startDate);
+          currentDate.setDate(startDate.getDate() + i);
+          return {
+            date: format(currentDate, 'EEE'),
+            logged: loginDates.includes(format(currentDate, 'yyyy-MM-dd')),
+          };
+        });
+  
+        setWeeklyLogins(days);
+      } catch (error) {
+        toast.error('Failed to load login history');
+      }
+    };
+  
+    fetchWeeklyLogins();
   }, [userName]);
 
   useEffect(() => {
@@ -200,6 +232,7 @@ export default function TaskManager() {
     );
   }
 
+
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
@@ -260,29 +293,31 @@ export default function TaskManager() {
             duration={meditationTimer}
           />
 
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <Calendar className="h-4 w-4" />
-                Weekly Consistency
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex justify-between gap-1">
-                {weeklyProgress.map((day, index) => (
-                  <div key={index} className="flex flex-col items-center">
-                    <div className="text-xs text-muted-foreground">{day.date}</div>
-                    <div
-                      className="w-8 h-8 rounded-sm mt-1"
-                      style={{
-                        backgroundColor: `hsl(var(--chart-2) / ${day.completion}%)`,
-                      }}
-                    />
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+<Card>
+  <CardHeader className="pb-2">
+    <CardTitle className="text-sm font-medium flex items-center gap-2">
+      <Calendar className="h-4 w-4" />
+      Weekly Consistency
+    </CardTitle>
+  </CardHeader>
+  <CardContent>
+    <div className="flex justify-between gap-1">
+      {weeklyLogins.map((day, index) => (
+        <div key={index} className="flex flex-col items-center">
+          <div className="text-xs text-muted-foreground">{day.date}</div>
+          <div
+            className="w-8 h-8 rounded-sm mt-1"
+            style={{
+              backgroundColor: day.logged 
+                ? 'hsl(var(--chart-2) / 100%)' 
+                : 'hsl(var(--muted) / 30%)',
+            }}
+          />
+        </div>
+      ))}
+    </div>
+  </CardContent>
+</Card>
         </div>
       </div>
 
